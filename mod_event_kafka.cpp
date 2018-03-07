@@ -40,7 +40,6 @@
 #include <exception>
 #include <stdexcept>
 #include <string>
-#include <sstream>
 #include <switch.h>
 
 #include "mod_event_kafka.hpp"
@@ -69,11 +68,12 @@ namespace mod_event_kafka {
 
     class KafkaDeliveryReportCallback : public RdKafka::DeliveryReportCb {
         public:
-        void dr_cb (RdKafka::Message &message) {
-            if (message.err())
-                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Message delivery failed %s \n",message.errstr().c_str());
-            else
-                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "Message delivered (%zd bytes, partition %d) \n",message.len(), message.partition());
+        void dr_cb (RdKafka::Message &message) override {
+            if (message.err() == RdKafka::ERR_NO_ERROR){
+                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "Message delivered (%zd bytes, partition %d, offset  %" PRId64 ") \n",message.len(), message.partition(), message.offset());
+            } else {
+                 switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Message delivery failed %s \n",message.errstr().c_str());
+            }
         }
     };
 
@@ -103,8 +103,8 @@ namespace mod_event_kafka {
             * This callback will be called once per message to inform
             * the application if delivery succeeded or failed.
             * See dr_msg_cb() above. */
-            KafkaDeliveryReportCallback ex_dr_cb;
-            conf->set("dr_cb", &ex_dr_cb, errstr);
+            KafkaDeliveryReportCallback *ex_dr_cb =  new KafkaDeliveryReportCallback();
+            conf->set("dr_cb", ex_dr_cb, errstr);
 
             /*
             * Create producer instance.
@@ -124,7 +124,7 @@ namespace mod_event_kafka {
             * Both the producer instance (rd_kafka_t) and topic objects (topic_t)
             * are long-lived objects that should be reused as much as possible.
             */
-            std::string topic_str = std::string(globals.topic_prefix)+ "hostname";
+            std::string topic_str = std::string(globals.topic_prefix) + "_hostname";
             topic = RdKafka::Topic::create(producer, topic_str, tconf, errstr);
             if (!topic) {
                 switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Failed to create topic %s object: %s", topic_str.c_str(), errstr.c_str());

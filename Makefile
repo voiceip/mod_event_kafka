@@ -5,8 +5,8 @@ MODCFLAGS = -Wall -Werror
 MODLDFLAGS = -lssl 
 
 CXX = g++
-CXXFLAGS = -fPIC -g -ggdb -I/usr/include `pkg-config --cflags freeswitch` $(MODCFLAGS) -std=c++0x
-LDFLAGS = `pkg-config --libs freeswitch` `pkg-config --libs rdkafka` $(MODLDFLAGS)
+CXXFLAGS = -fPIC -g -ggdb -I/usr/include  `pkg-config --cflags freeswitch` $(MODCFLAGS) -std=c++11
+LDFLAGS = `pkg-config --libs freeswitch` -lrdkafka++ $(MODLDFLAGS) 
 
 .PHONY: all
 all: $(MODNAME)

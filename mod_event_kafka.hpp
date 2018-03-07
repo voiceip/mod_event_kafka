@@ -1,9 +1,7 @@
 #ifndef MOD_EVENT_KAFKA_H
 #define MOD_EVENT_KAFKA_H
-
-extern "C" {
-	#include "librdkafka/rdkafka.h"
-}
+ 
+#include "librdkafka/rdkafkacpp.h"
 
 namespace mod_event_kafka {
 
@@ -18,7 +16,6 @@ namespace mod_event_kafka {
 	extern "C" {
 		SWITCH_MODULE_DEFINITION(mod_event_kafka, mod_event_kafka_load, mod_event_kafka_shutdown, NULL);
 	};
-
-}
+};
 
 #endif // MOD_EVENT_KAFKA_H

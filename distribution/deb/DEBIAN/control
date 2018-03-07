@@ -1,0 +1,8 @@
+Package: mod-event-kafka
+Version: 1._VERSION_
+Architecture: all
+Section: base
+Priority: standard
+Depends: curl, unzip
+Maintainer: Kinshuk Bairagi <me@kinshuk.in>
+Description: Publish FreeSwitch Event to Kafka

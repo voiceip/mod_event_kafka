@@ -35,20 +35,18 @@
  *
  */
 
-#include <switch.h>
+#include <iostream>
 #include <memory>
 #include <exception>
 #include <stdexcept>
 #include <string>
-#include <sstream>
-#include <iostream>
+#include <switch.h>
 
-#include "mod_event_kafka.h"
+#include "mod_event_kafka.hpp"
  
 namespace mod_event_kafka {
 
     static switch_xml_config_item_t instructions[] = {
-        /* parameter name        type                 reloadable   pointer                         default value     options structure */
         SWITCH_CONFIG_ITEM("bootstrap-servers", SWITCH_CONFIG_STRING, CONFIG_RELOADABLE, &globals.brokers,
                             "localhost:9092", NULL, "bootstrap-servers", "Kafka Bootstrap Brokers"),
         SWITCH_CONFIG_ITEM("topic-prefix", SWITCH_CONFIG_STRING, CONFIG_RELOADABLE, &globals.topic_prefix,
@@ -56,73 +54,57 @@ namespace mod_event_kafka {
         SWITCH_CONFIG_ITEM_END()
     };
 
-    static switch_status_t do_config(switch_bool_t reload)
+    static switch_status_t load_config(switch_bool_t reload)
     {
         memset(&globals, 0, sizeof(globals));
-
         if (switch_xml_config_parse_module_settings("event_kafka.conf", reload, instructions) != SWITCH_STATUS_SUCCESS) {
             switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_CRIT, "Could not open event_kafka.conf\n");
             return SWITCH_STATUS_FALSE;
         } else {
             switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "event_kafka.conf reloaded :: brokers : %s, prefix %s \n", globals.brokers, globals.topic_prefix);
         }
-
         return SWITCH_STATUS_SUCCESS;
     }
 
+    class KafkaDeliveryReportCallback : public RdKafka::DeliveryReportCb {
+        public:
+        void dr_cb (RdKafka::Message &message) override {
+            if (message.err() == RdKafka::ERR_NO_ERROR){
+                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "Message delivered (%zd bytes, partition %d, offset  %" PRId64 ") \n",message.len(), message.partition(), message.offset());
+            } else {
+                 switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Message delivery failed %s \n",message.errstr().c_str());
+            }
+        }
+    };
 
     class KafkaEventPublisher {
        
-        /**
-         * @brief Message delivery report callback.
-         *
-         * This callback is called exactly once per message, indicating if
-         * the message was succesfully delivered
-         * (rkmessage->err == RD_KAFKA_RESP_ERR_NO_ERROR) or permanently
-         * failed delivery (rkmessage->err != RD_KAFKA_RESP_ERR_NO_ERROR).
-         *
-         * The callback is triggered from rd_kafka_poll() and executes on
-         * the application's thread.
-         */
-        static void dr_msg_cb (rd_kafka_t *rk,
-                            const rd_kafka_message_t *rkmessage, void *opaque) {
-                if (rkmessage->err)
-                    switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, " Message delivery failed %s \n",rd_kafka_err2str(rkmessage->err));
-                else
-                    switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, " Message delivered (%zd bytes, partition %d) \n",rkmessage->len, rkmessage->partition);
-                /* The rkmessage is destroyed automatically by librdkafka */
-
-        }
-
-
         public:
         KafkaEventPublisher(){
+
             switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "KafkaEventPublisher Initialising...");
 
-            //read config
-            do_config(SWITCH_FALSE);
+            load_config(SWITCH_FALSE);
             
-            conf = rd_kafka_conf_new();
+            RdKafka::Conf *conf = RdKafka::Conf::create(RdKafka::Conf::CONF_GLOBAL);
+            RdKafka::Conf *tconf = RdKafka::Conf::create(RdKafka::Conf::CONF_TOPIC);
 
-            //throw std::runtime_error("errstr forced error");
             switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, globals.brokers);
 
-            if (rd_kafka_conf_set(conf, "metadata.broker.list", globals.brokers,
-                              errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK) {
-                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, errstr);
+            if (conf->set("metadata.broker.list",  globals.brokers, errstr) != RdKafka::Conf::CONF_OK) {
+               switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, errstr.c_str());
             }
 
-            if (rd_kafka_conf_set(conf, "queue.buffering.max.messages", "5",
-                              errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK) {
-                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, errstr);
+            if (conf->set("queue.buffering.max.messages", "5", errstr) != RdKafka::Conf::CONF_OK) {
+               switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, errstr.c_str());
             }
             
-
             /* Set the delivery report callback.
             * This callback will be called once per message to inform
             * the application if delivery succeeded or failed.
             * See dr_msg_cb() above. */
-            rd_kafka_conf_set_dr_msg_cb(conf, dr_msg_cb);
+            KafkaDeliveryReportCallback *ex_dr_cb =  new KafkaDeliveryReportCallback();
+            conf->set("dr_cb", ex_dr_cb, errstr);
 
             /*
             * Create producer instance.
@@ -131,11 +113,10 @@ namespace mod_event_kafka {
             *       and the application must not reference it again after
             *       this call.
             */
-            rk = rd_kafka_new(RD_KAFKA_PRODUCER, conf, errstr, sizeof(errstr));
-            if (!rk) {
-                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Failed to create new producer: %s", errstr);
+            producer = RdKafka::Producer::create(conf, errstr);
+            if (!producer) {
+                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Failed to create new producer: %s", errstr.c_str());
             }
-
 
             /* Create topic object that will be reused for each message
             * produced.
@@ -143,13 +124,12 @@ namespace mod_event_kafka {
             * Both the producer instance (rd_kafka_t) and topic objects (topic_t)
             * are long-lived objects that should be reused as much as possible.
             */
-            std::string topic = std::string(globals.topic_prefix)+ "hostname";
-            rkt = rd_kafka_topic_new(rk, topic.c_str(), NULL);
-            if (!rkt) {
-
-                    switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Failed to create topic %s object: %s", topic.c_str(),  rd_kafka_err2str(rd_kafka_last_error()));
-                    rd_kafka_destroy(rk);
+            std::string topic_str = std::string(globals.topic_prefix) + "_hostname";
+            topic = RdKafka::Topic::create(producer, topic_str, tconf, errstr);
+            if (!topic) {
+                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Failed to create topic %s object: %s", topic_str.c_str(), errstr.c_str());
             }
+
             _initialized = 1;
         }
 
@@ -160,64 +140,18 @@ namespace mod_event_kafka {
             int len = strlen(event_json);
 
             if(_initialized){
-                if (rd_kafka_produce(
-                            /* Topic object */
-                            rkt,
-                            /* Use builtin partitioner to select partition*/
-                            RD_KAFKA_PARTITION_UA,
-                            /* Make a copy of the payload. */
-                            RD_KAFKA_MSG_F_COPY,
-                            /* Message payload (value) and length */
-                            (void *)event_json, len,
-                            /* Optional key and its length */
-                            NULL, 0,
-                            /* Message opaque, provided in
-                             * delivery report callback as
-                             * msg_opaque. */
-                            NULL) == -1) {
+                RdKafka::ErrorCode resp = producer->produce(topic, RdKafka::Topic::PARTITION_UA,
+                        RdKafka::Producer::RK_MSG_COPY /* Copy payload */,
+                        event_json, len,
+                        NULL, NULL);
 
-                        /**
-                         * Failed to *enqueue* message for producing.
-                         */
-                        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Failed to produce to topic %s: %s",  
-                            rd_kafka_topic_name(rkt), rd_kafka_err2str(rd_kafka_last_error()));
-
-                        /* Poll to handle delivery reports */
-                        if (rd_kafka_last_error() ==
-                            RD_KAFKA_RESP_ERR__QUEUE_FULL) {
-                                /* If the internal queue is full, wait for
-                                 * messages to be delivered and then retry.
-                                 * The internal queue represents both
-                                 * messages to be sent and messages that have
-                                 * been sent or failed, awaiting their
-                                 * delivery report callback to be called.
-                                 *
-                                 * The internal queue is limited by the
-                                 * configuration property
-                                 * queue.buffering.max.messages */
-                                rd_kafka_poll(rk, 1000/*block for max 1000ms*/);
-                                //goto retry;
-                        }
-                        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_WARNING, event_json);
+                if (resp != RdKafka::ERR_NO_ERROR){
+                    switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Failed to produce, with error %s", RdKafka::err2str(resp).c_str());
+                    switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_WARNING, event_json);
                 } else {
-                    switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO,"Enqueued message (%d bytes) for topic %s\n ", len, rd_kafka_topic_name(rkt));
+                    switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO,"Produced message (%d bytes)\n ", len);
                 }
-
-
-                /* A producer application should continually serve
-                 * the delivery report queue by calling rd_kafka_poll()
-                 * at frequent intervals.
-                 * Either put the poll call in your main loop, or in a
-                 * dedicated thread, or call it after every
-                 * rd_kafka_produce() call.
-                 * Just make sure that rd_kafka_poll() is still called
-                 * during periods where you are not producing any messages
-                 * to make sure previously produced messages have their
-                 * delivery report callback served (and any other callbacks
-                 * you register). */
-                rd_kafka_poll(rk, 0/*non-blocking*/);
-
-
+                producer->poll(0);
             } else {
                 switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_WARNING, "PublishEvent without KafkaPublisher");
                 switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, event_json);
@@ -229,21 +163,17 @@ namespace mod_event_kafka {
         }
 
         private:
-        rd_kafka_t *rk;         /* Producer instance handle */
-        rd_kafka_topic_t *rkt;  /* Topic object */
-        rd_kafka_conf_t *conf;  /* Temporary configuration object */
-        char errstr[512]; 
-        bool _initialized = 0;
-        char buf[4096];          /* Message value temporary buffer */
 
-   
+        std::string errstr; 
+        bool _initialized = 0;
+        RdKafka::Producer *producer;
+        RdKafka::Topic *topic;
     };
 
     class KafkaModule {
     public:
 
         KafkaModule(switch_loadable_module_interface_t **module_interface, switch_memory_pool_t *pool): _publisher() {
-
              
             // Subscribe to all switch events of any subclass
             // Store a pointer to ourself in the user data
@@ -256,7 +186,6 @@ namespace mod_event_kafka {
 
             // Create our module interface registration
             *module_interface = switch_loadable_module_create_module_interface(pool, modname);
-
 
             switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "Module loaded\n");
 
@@ -276,16 +205,11 @@ namespace mod_event_kafka {
 
     private:
 
-        
         // Dispatches events to the publisher
         static void event_handler(switch_event_t *event) {
             try {
-                //ZmqEventPublisher *publisher = static_cast<ZmqEventPublisher*>(event->bind_user_data);
-                //publisher->PublishEvent(event);
                 KafkaEventPublisher *publisher = static_cast<KafkaEventPublisher*>(event->bind_user_data);
                 publisher->PublishEvent(event);
-
-
             } catch (std::exception ex) {
                 switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_WARNING, "Error publishing event via 0MQ: %s\n",
                                   ex.what());
@@ -296,7 +220,6 @@ namespace mod_event_kafka {
 
         switch_event_node_t *_node;
         KafkaEventPublisher _publisher;
-
 
     };
 

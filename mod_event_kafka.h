@@ -2,6 +2,12 @@
 #define MOD_EVENT_KAFKA_H
 
 namespace mod_event_kafka {
+
+	static struct {
+		char *brokers;
+		char *topic_prefix;
+	} globals;
+
 	
 // static const char MODULE_TERM_REQ_MESSAGE = 1;
 // static const char MODULE_TERM_ACK_MESSAGE = 2;

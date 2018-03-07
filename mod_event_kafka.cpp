@@ -44,15 +44,17 @@
 #include <iostream>
 
 #include "mod_event_kafka.h"
-
-template<class T>
-std::string toString(const T &value) {
-    std::ostringstream os;
-    os << value;
-    return os.str();
-}
-
+ 
 namespace mod_event_kafka {
+
+    static switch_xml_config_item_t instructions[] = {
+        /* parameter name        type                 reloadable   pointer                         default value     options structure */
+        SWITCH_CONFIG_ITEM("bootstrap-servers", SWITCH_CONFIG_STRING, CONFIG_RELOADABLE, &globals.brokers,
+                            "localhost:9092", NULL, "bootstrap-servers", "Kafka Bootstrap Brokers"),
+        SWITCH_CONFIG_ITEM("topic-prefix", SWITCH_CONFIG_STRING, CONFIG_RELOADABLE, &globals.topic_prefix,
+                            "fs", NULL, "topic-prefix", "Kafka Topic Prefix"),
+        SWITCH_CONFIG_ITEM_END()
+    };
 
     class KafkaEventPublisher {
 
@@ -75,6 +77,7 @@ namespace mod_event_kafka {
 
             // Create our module interface registration
             *module_interface = switch_loadable_module_create_module_interface(pool, modname);
+            do_config(SWITCH_FALSE);
 
             switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "Module loaded\n");
 
@@ -93,6 +96,21 @@ namespace mod_event_kafka {
         }
 
     private:
+
+        static switch_status_t do_config(switch_bool_t reload)
+        {
+            memset(&globals, 0, sizeof(globals));
+
+            if (switch_xml_config_parse_module_settings("event_kafka.conf", reload, instructions) != SWITCH_STATUS_SUCCESS) {
+                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_CRIT, "Could not open event_kafka.conf\n");
+                return SWITCH_STATUS_FALSE;
+            } else {
+                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "event_kafka.conf reloaded\n");
+                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "event_kafka.conf brokers : %s, prefix %s \n", globals.brokers, globals.topic_prefix);
+            }
+
+            return SWITCH_STATUS_SUCCESS;
+        }
 
         // Dispatches events to the publisher
         static void event_handler(switch_event_t *event) {
@@ -115,6 +133,7 @@ namespace mod_event_kafka {
         switch_event_node_t *_node;
 
     };
+
 
 
     //*****************************//

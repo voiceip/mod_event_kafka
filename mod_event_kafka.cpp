@@ -43,7 +43,7 @@
 #include <switch.h>
 
 #include "mod_event_kafka.hpp"
- 
+
 namespace mod_event_kafka {
 
     static switch_xml_config_item_t instructions[] = {
@@ -70,7 +70,7 @@ namespace mod_event_kafka {
         public:
         void dr_cb (RdKafka::Message &message) override {
             if (message.err() == RdKafka::ERR_NO_ERROR){
-                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "Message delivered (%zd bytes, partition %d, offset  %" PRId64 ") \n",message.len(), message.partition(), message.offset());
+                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "Message delivered (%zd bytes, partition %d, offset  %" PRId64 ") \n",message.len(), message.partition(), message.offset());
             } else {
                  switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Message delivery failed %s \n",message.errstr().c_str());
             }
@@ -106,24 +106,11 @@ namespace mod_event_kafka {
             KafkaDeliveryReportCallback *ex_dr_cb =  new KafkaDeliveryReportCallback();
             conf->set("dr_cb", ex_dr_cb, errstr);
 
-            /*
-            * Create producer instance.
-            *
-            * NOTE: rd_kafka_new() takes ownership of the conf object
-            *       and the application must not reference it again after
-            *       this call.
-            */
             producer = RdKafka::Producer::create(conf, errstr);
             if (!producer) {
                 switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Failed to create new producer: %s", errstr.c_str());
             }
 
-            /* Create topic object that will be reused for each message
-            * produced.
-            *
-            * Both the producer instance (rd_kafka_t) and topic objects (topic_t)
-            * are long-lived objects that should be reused as much as possible.
-            */
             std::string topic_str = std::string(globals.topic_prefix) + "_hostname";
             topic = RdKafka::Topic::create(producer, topic_str, tconf, errstr);
             if (!topic) {
@@ -137,7 +124,7 @@ namespace mod_event_kafka {
             
             char *event_json = (char*)malloc(sizeof(char));
             switch_event_serialize_json(event, &event_json);
-            int len = strlen(event_json);
+            size_t len = strlen(event_json);
 
             if(_initialized){
                 RdKafka::ErrorCode resp = producer->produce(topic, RdKafka::Topic::PARTITION_UA,
@@ -149,13 +136,18 @@ namespace mod_event_kafka {
                     switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Failed to produce, with error %s", RdKafka::err2str(resp).c_str());
                     switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_WARNING, event_json);
                 } else {
-                    switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO,"Produced message (%d bytes)\n ", len);
+                    switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG,"Produced message (%zu bytes)", len);
                 }
                 producer->poll(0);
             } else {
-                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_WARNING, "PublishEvent without KafkaPublisher");
+                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "PublishEvent without active KafkaPublisher");
                 switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, event_json);
             }
+        }
+
+        void Shutdown(){
+            //flush within 100ms
+            producer->flush(100);
         }
 
         ~KafkaEventPublisher(){
@@ -193,8 +185,8 @@ namespace mod_event_kafka {
 
         void Shutdown() {
             // Send term message
-            switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG,
-                              "Shutdown requested, sending term message to runloop\n");
+            _publisher.Shutdown();
+            switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "Shutdown requested, flushing publisher\n");
         }
 
         ~KafkaModule() {

@@ -105,8 +105,7 @@ namespace mod_event_kafka {
                 switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_CRIT, "Could not open event_kafka.conf\n");
                 return SWITCH_STATUS_FALSE;
             } else {
-                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "event_kafka.conf reloaded\n");
-                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "event_kafka.conf brokers : %s, prefix %s \n", globals.brokers, globals.topic_prefix);
+                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "event_kafka.conf reloaded :: brokers : %s, prefix %s \n", globals.brokers, globals.topic_prefix);
             }
 
             return SWITCH_STATUS_SUCCESS;
@@ -133,7 +132,6 @@ namespace mod_event_kafka {
         switch_event_node_t *_node;
 
     };
-
 
 
     //*****************************//

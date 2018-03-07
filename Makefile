@@ -1,12 +1,12 @@
 # Customise these as appropriate
 MODNAME = mod_event_kafka.so
 MODOBJ = mod_event_kafka.o #file.o file2.o file3.o
-MODCFLAGS = -Wall -Werror
-MODLDFLAGS = -lssl
+MODCFLAGS = -Wall -Werror 
+MODLDFLAGS = -lssl 
 
 CXX = g++
-CXXFLAGS = -fPIC -g -ggdb `pkg-config --cflags freeswitch` $(MODCFLAGS) -std=c++0x
-LDFLAGS = `pkg-config --libs freeswitch` $(MODLDFLAGS)
+CXXFLAGS = -fPIC -g -ggdb -I/usr/include `pkg-config --cflags freeswitch` $(MODCFLAGS) -std=c++0x
+LDFLAGS = `pkg-config --libs freeswitch` `pkg-config --libs rdkafka` $(MODLDFLAGS)
 
 .PHONY: all
 all: $(MODNAME)

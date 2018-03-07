@@ -58,18 +58,35 @@ namespace mod_event_kafka {
 
     class KafkaEventPublisher {
 
+        public:
+        KafkaEventPublisher(){
+            switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "KafkaEventPublisher Init");
+
+        }
+
+        void PublishEvent(switch_event_t *event) {
+            char *event_json = (char*)malloc(sizeof(char));
+            switch_event_serialize_json(event, &event_json);
+            switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, event_json);
+        }
+
+        ~KafkaEventPublisher(){
+            switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "KafkaEventPublisher Destroy");
+        }
+
 
     };
 
     class KafkaModule {
     public:
 
-        KafkaModule(switch_loadable_module_interface_t **module_interface, switch_memory_pool_t *pool) {
+        KafkaModule(switch_loadable_module_interface_t **module_interface, switch_memory_pool_t *pool): 
+        _publisher() {
 
             // Subscribe to all switch events of any subclass
             // Store a pointer to ourself in the user data
             if (switch_event_bind_removable(modname, SWITCH_EVENT_ALL, SWITCH_EVENT_SUBCLASS_ANY, event_handler,
-                                            nullptr, &_node)
+                                            static_cast<void*>(&_publisher), &_node)
                 != SWITCH_STATUS_SUCCESS) {
                 throw std::runtime_error("Couldn't bind to switch events.");
             }
@@ -116,10 +133,9 @@ namespace mod_event_kafka {
             try {
                 //ZmqEventPublisher *publisher = static_cast<ZmqEventPublisher*>(event->bind_user_data);
                 //publisher->PublishEvent(event);
-                char *event_json = (char*)malloc(sizeof(char));
-            	switch_event_serialize_json(event, &event_json);
+                KafkaEventPublisher *publisher = static_cast<KafkaEventPublisher*>(event->bind_user_data);
+                publisher->PublishEvent(event);
 
-                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, event_json);
 
             } catch (std::exception ex) {
                 switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_WARNING, "Error publishing event via 0MQ: %s\n",
@@ -130,6 +146,8 @@ namespace mod_event_kafka {
         }
 
         switch_event_node_t *_node;
+        KafkaEventPublisher _publisher;
+
 
     };
 

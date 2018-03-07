@@ -57,3 +57,7 @@ CTestTestfile.cmake
 build
 CMakeLists.txt
 cmake-build-debug/
+
+
+#VSCode
+.vscode

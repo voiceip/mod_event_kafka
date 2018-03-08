@@ -1,7 +1,7 @@
 #ifndef MOD_EVENT_KAFKA_H
 #define MOD_EVENT_KAFKA_H
 
-extern "C" {
+extern "C" { 
 	#include "librdkafka/rdkafka.h"
 }
 

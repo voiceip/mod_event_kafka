@@ -61,3 +61,7 @@ cmake-build-debug/
 
 #VSCode
 .vscode
+
+
+#dist
+*.deb

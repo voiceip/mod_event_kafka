@@ -1,4 +1,4 @@
-Package: mod-event-kafka
+Package: freeswitch-mod-event-kafka
 Version: 1._VERSION_
 Architecture: all
 Section: base

@@ -13,6 +13,6 @@ cp /etc/freeswitch/autoload_configs/event_kafka.conf.xml  $BUILD_ROOT/etc/freesw
 cp /usr/lib/freeswitch/mod/mod_event_kafka.so  $BUILD_ROOT/usr/lib/freeswitch/mod/mod_event_kafka.so
 
 sed -i "s/_VERSION_/$VERSION/g" $BUILD_ROOT/DEBIAN/control
-dpkg-deb --build $BUILD_ROOT mod-event-kafka.deb
+dpkg-deb --build $BUILD_ROOT freeswitch-mod-event-kafka.deb
 
 rm -rf $BUILD_ROOT

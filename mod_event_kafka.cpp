@@ -66,14 +66,7 @@ namespace mod_event_kafka {
 
     class KafkaEventPublisher {
 
-        static void dr_msg_cb (rd_kafka_t *rk, const rd_kafka_message_t *rkmessage, void *opaque) {
-            if (rkmessage->err)
-                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, " Message delivery failed %s \n",rd_kafka_err2str(rkmessage->err));
-            else
-                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO,  "Message delivered (%zd bytes, partition %d, offset  %" PRId64 ") \n",rkmessage->len, rkmessage->partition, rkmessage->offset);
-        }
-    };
-
+        
         public:
         KafkaEventPublisher(){
 
@@ -101,14 +94,9 @@ namespace mod_event_kafka {
             std::string topic_str = std::string(globals.topic_prefix) + "_" + std::string(switch_core_get_switchname());
             switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "KafkaEventPublisher Topic : %s", topic_str.c_str());
 
-            // topic = RdKafka::Topic::create(producer, topic_str, tconf, errstr);
             topic = rd_kafka_topic_new(producer, topic_str.c_str(), NULL);
             if (!topic) {
                 switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Failed to create topic %s object: %s", topic_str.c_str(),  rd_kafka_err2str(rd_kafka_last_error()));
-            }
-
-                    switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Failed to create topic %s object: %s", topic.c_str(),  rd_kafka_err2str(rd_kafka_last_error()));
-                    rd_kafka_destroy(rk);
             }
 
             _initialized = 1;
@@ -146,6 +134,14 @@ namespace mod_event_kafka {
         }
 
         private:
+
+        static void dr_msg_cb (rd_kafka_t *rk, const rd_kafka_message_t *rkmessage, void *opaque) {
+            if (rkmessage->err)
+                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, " Message delivery failed %s \n",rd_kafka_err2str(rkmessage->err));
+            else
+                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO,  "Message delivered (%zd bytes, partition %d, offset  %" PRId64 ") \n",rkmessage->len, rkmessage->partition, rkmessage->offset);
+        }
+
 
         int send(char *data, int currentCount = 0){
             if(++currentCount <= max_retry_limit){

@@ -40,6 +40,7 @@
 #include <exception>
 #include <stdexcept>
 #include <string>
+#include <thread>
 #include <switch.h>
 #include "mod_event_kafka.hpp"
 
@@ -49,7 +50,7 @@ namespace mod_event_kafka {
         SWITCH_CONFIG_ITEM("bootstrap-servers", SWITCH_CONFIG_STRING, CONFIG_RELOADABLE, &globals.brokers,
                             "localhost:9092", NULL, "bootstrap-servers", "Kafka Bootstrap Brokers"),
         SWITCH_CONFIG_ITEM("topic-prefix", SWITCH_CONFIG_STRING, CONFIG_RELOADABLE, &globals.topic_prefix,
-                            "fs-events", NULL, "topic-prefix", "Kafka Topic Prefix"),
+                            "fs", NULL, "topic-prefix", "Kafka Topic Prefix"),
         SWITCH_CONFIG_ITEM_END()
     };
 
@@ -126,18 +127,10 @@ namespace mod_event_kafka {
             size_t len = strlen(event_json);
 
             if(_initialized){
-                RdKafka::ErrorCode resp = producer->produce(topic, RdKafka::Topic::PARTITION_UA,
-                        RdKafka::Producer::RK_MSG_COPY /* Copy payload */,
-                        event_json, len,
-                        NULL, NULL);
-
+                RdKafka::ErrorCode resp = send(event_json);
                 if (resp != RdKafka::ERR_NO_ERROR){
                     switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Failed to produce, with error %s", RdKafka::err2str(resp).c_str());
                     switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_WARNING, event_json);
-                    if(resp == RdKafka::ERR__QUEUE_FULL){
-                        //localqueue is full, hold and flush them.
-                        producer->poll(1000);
-                    }
                 } else {
                     switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG,"Produced message (%zu bytes)", len);
                 }
@@ -159,6 +152,36 @@ namespace mod_event_kafka {
 
         private:
 
+        std::function<RdKafka::ErrorCode (RdKafka::Producer*, RdKafka::Topic*, char*)> _send = [](RdKafka::Producer *producer, RdKafka::Topic *topic, char *data) -> RdKafka::ErrorCode {
+                size_t len = strlen(data);
+                RdKafka::ErrorCode resp = producer->produce(topic, RdKafka::Topic::PARTITION_UA,
+                        RdKafka::Producer::RK_MSG_COPY /* Copy payload */,
+                        data, len,
+                        NULL, NULL);
+                return resp;
+        };
+
+        RdKafka::ErrorCode send(char* data, int currentCount = 0){
+                if(++currentCount <= max_retry_limit){
+                    RdKafka::ErrorCode result = _send(producer,topic, data);
+                    if (result == RdKafka::ERR_NO_ERROR){
+                        return result;
+                    } else if(result == RdKafka::ERR__QUEUE_FULL) {
+                        //localqueue is full, hold and flush them.
+                        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG,"queue.buffering.max.messages limit reached, waiting 1sec to flush out.");
+                        producer->poll(1000);
+                        return send(data, currentCount);
+                    } else {
+                        //not handing other unknown errors
+                        return result;
+                    }
+                } else {
+                    switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "KafkaEventPublisher send max_retry_limit hit");
+                }
+                return RdKafka::ERR__FAIL;    
+        }
+
+        int max_retry_limit = 3;
         std::string errstr; 
         bool _initialized = 0;
         RdKafka::Producer *producer;

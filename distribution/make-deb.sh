@@ -3,7 +3,7 @@ set -x
 
 BUILD_ROOT=$(mktemp -d)
 VERSION=$(date +%s)
-cp -r deb/* $BUILD_ROOT/
+cp -r debian/* $BUILD_ROOT/
 
 mkdir -p $BUILD_ROOT/usr/local/lib/
 mkdir -p $BUILD_ROOT/usr/lib/freeswitch/mod

@@ -3,6 +3,6 @@ Version: 1._VERSION_
 Architecture: all
 Section: base
 Priority: standard
-Depends: curl, unzip
+Depends: librdkafka1 (>= 0.9.3-1)
 Maintainer: Kinshuk Bairagi <me@kinshuk.in>
 Description: Publish FreeSwitch Event to Kafka

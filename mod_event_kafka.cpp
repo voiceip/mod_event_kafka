@@ -41,7 +41,6 @@
 #include <stdexcept>
 #include <string>
 #include <switch.h>
-
 #include "mod_event_kafka.hpp"
 
 namespace mod_event_kafka {
@@ -50,7 +49,7 @@ namespace mod_event_kafka {
         SWITCH_CONFIG_ITEM("bootstrap-servers", SWITCH_CONFIG_STRING, CONFIG_RELOADABLE, &globals.brokers,
                             "localhost:9092", NULL, "bootstrap-servers", "Kafka Bootstrap Brokers"),
         SWITCH_CONFIG_ITEM("topic-prefix", SWITCH_CONFIG_STRING, CONFIG_RELOADABLE, &globals.topic_prefix,
-                            "fs", NULL, "topic-prefix", "Kafka Topic Prefix"),
+                            "fs-events", NULL, "topic-prefix", "Kafka Topic Prefix"),
         SWITCH_CONFIG_ITEM_END()
     };
 
@@ -61,7 +60,7 @@ namespace mod_event_kafka {
             switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_CRIT, "Could not open event_kafka.conf\n");
             return SWITCH_STATUS_FALSE;
         } else {
-            switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "event_kafka.conf reloaded :: brokers : %s, prefix %s \n", globals.brokers, globals.topic_prefix);
+            switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "event_kafka.conf loaded [brokers: %s, prefix: %s]", globals.brokers, globals.topic_prefix);
         }
         return SWITCH_STATUS_SUCCESS;
     }
@@ -89,8 +88,6 @@ namespace mod_event_kafka {
             RdKafka::Conf *conf = RdKafka::Conf::create(RdKafka::Conf::CONF_GLOBAL);
             RdKafka::Conf *tconf = RdKafka::Conf::create(RdKafka::Conf::CONF_TOPIC);
 
-            switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, globals.brokers);
-
             if (conf->set("metadata.broker.list",  globals.brokers, errstr) != RdKafka::Conf::CONF_OK) {
                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, errstr.c_str());
             }
@@ -111,7 +108,9 @@ namespace mod_event_kafka {
                 switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Failed to create new producer: %s", errstr.c_str());
             }
 
-            std::string topic_str = std::string(globals.topic_prefix) + "_hostname";
+            std::string topic_str = std::string(globals.topic_prefix) + "_" + std::string(switch_core_get_switchname());
+            switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "KafkaEventPublisher Topic : %s", topic_str.c_str());
+
             topic = RdKafka::Topic::create(producer, topic_str, tconf, errstr);
             if (!topic) {
                 switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Failed to create topic %s object: %s", topic_str.c_str(), errstr.c_str());
@@ -135,6 +134,10 @@ namespace mod_event_kafka {
                 if (resp != RdKafka::ERR_NO_ERROR){
                     switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Failed to produce, with error %s", RdKafka::err2str(resp).c_str());
                     switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_WARNING, event_json);
+                    if(resp == RdKafka::ERR__QUEUE_FULL){
+                        //localqueue is full, hold and flush them.
+                        producer->poll(1000);
+                    }
                 } else {
                     switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG,"Produced message (%zu bytes)", len);
                 }

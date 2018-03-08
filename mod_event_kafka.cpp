@@ -36,9 +36,6 @@
  */
 
 #include <iostream>
-#include <memory>
-#include <exception>
-#include <stdexcept>
 #include <string>
 #include <thread>
 #include <switch.h>
@@ -78,7 +75,7 @@ namespace mod_event_kafka {
     };
 
     class KafkaEventPublisher {
-       
+
         public:
         KafkaEventPublisher(){
 
@@ -97,10 +94,6 @@ namespace mod_event_kafka {
                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, errstr.c_str());
             }
             
-            /* Set the delivery report callback.
-            * This callback will be called once per message to inform
-            * the application if delivery succeeded or failed.
-            * See dr_msg_cb() above. */
             KafkaDeliveryReportCallback *ex_dr_cb =  new KafkaDeliveryReportCallback();
             conf->set("dr_cb", ex_dr_cb, errstr);
 
@@ -121,16 +114,15 @@ namespace mod_event_kafka {
         }
 
         void PublishEvent(switch_event_t *event) {
-            
+
             char *event_json = (char*)malloc(sizeof(char));
             switch_event_serialize_json(event, &event_json);
             size_t len = strlen(event_json);
 
             if(_initialized){
-                RdKafka::ErrorCode resp = send(event_json);
+                RdKafka::ErrorCode resp = send(event_json,0);
                 if (resp != RdKafka::ERR_NO_ERROR){
                     switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Failed to produce, with error %s", RdKafka::err2str(resp).c_str());
-                    switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_WARNING, event_json);
                 } else {
                     switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG,"Produced message (%zu bytes)", len);
                 }
@@ -152,40 +144,40 @@ namespace mod_event_kafka {
 
         private:
 
-        std::function<RdKafka::ErrorCode (RdKafka::Producer*, RdKafka::Topic*, char*)> _send = [](RdKafka::Producer *producer, RdKafka::Topic *topic, char *data) -> RdKafka::ErrorCode {
-                size_t len = strlen(data);
-                RdKafka::ErrorCode resp = producer->produce(topic, RdKafka::Topic::PARTITION_UA,
-                        RdKafka::Producer::RK_MSG_COPY /* Copy payload */,
-                        data, len,
-                        NULL, NULL);
-                return resp;
-        };
-
-        RdKafka::ErrorCode send(char* data, int currentCount = 0){
-                if(++currentCount <= max_retry_limit){
-                    RdKafka::ErrorCode result = _send(producer,topic, data);
-                    if (result == RdKafka::ERR_NO_ERROR){
-                        return result;
-                    } else if(result == RdKafka::ERR__QUEUE_FULL) {
+        RdKafka::ErrorCode send(char *data, int currentCount = 0){
+            if(++currentCount <= max_retry_limit){
+                RdKafka::ErrorCode result = producer->produce(topic, RdKafka::Topic::PARTITION_UA,
+                    RdKafka::Producer::RK_MSG_COPY /* Copy payload */,
+                    data, strlen(data),
+                    NULL, NULL);
+                if (result == RdKafka::ERR_NO_ERROR){
+                    return result;
+                } else if(result == RdKafka::ERR__QUEUE_FULL) {
+                    switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG,"queue.buffering.max.messages limit reached, waiting 1sec to flush out.");
+                    std::thread([this, data, currentCount ]() { 
                         //localqueue is full, hold and flush them.
-                        switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG,"queue.buffering.max.messages limit reached, waiting 1sec to flush out.");
                         producer->poll(1000);
-                        return send(data, currentCount);
-                    } else {
-                        //not handing other unknown errors
-                        return result;
-                    }
+                        send(data,currentCount); 
+                    })
+                    .detach(); //TODO: limit number of forked threads
+                    return result;
                 } else {
-                    switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "KafkaEventPublisher send max_retry_limit hit");
+                    //not handing other unknown errors
+                    return result;
                 }
-                return RdKafka::ERR__FAIL;    
-        }
+            } else {
+                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "KafkaEventPublisher send max_retry_limit hit");
+                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_WARNING, data);
+            }
+            return RdKafka::ERR__FAIL;    
+        }   
 
         int max_retry_limit = 3;
         std::string errstr; 
         bool _initialized = 0;
         RdKafka::Producer *producer;
         RdKafka::Topic *topic;
+       
     };
 
     class KafkaModule {
@@ -205,7 +197,7 @@ namespace mod_event_kafka {
             // Create our module interface registration
             *module_interface = switch_loadable_module_create_module_interface(pool, modname);
 
-            switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "Module loaded\n");
+            switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "Module loaded completed\n");
 
         };
 

@@ -1,5 +1,5 @@
 #!/bin/bash
-set -x
+set -ex
 
 BUILD_ROOT=$(mktemp -d)
 VERSION=$(date +%s)

@@ -8,7 +8,7 @@ FROM debian:9
 
 
 # Install git, process tools
-RUN apt-get update && apt-get -y install git procps wget 
+RUN apt-get update && apt-get -y install git procps wget tree 
 
 # Install C++ tools
 RUN apt-get -y install build-essential cmake cppcheck valgrind pkg-config lsb-release
@@ -23,6 +23,8 @@ RUN apt-get update && apt-get -y install libfreeswitch-dev librdkafka-dev libz-d
 RUN apt-get autoremove -y \
     && apt-get clean -y 
 #   && rm -rf /var/lib/apt/lists/*
+
+#INSERT_HERE
 
 # Set the default shell to bash instead of sh
 ENV SHELL /bin/bash

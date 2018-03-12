@@ -1,6 +1,8 @@
 <configuration name="event_kafka.conf" description="Kafka Event Configuration">
 	<settings>
-		<param name="bootstrap-servers" value="hostname:9092"/>
+		<param name="bootstrap-servers" value="localhost:9092"/>
 		<param name="topic-prefix" value="topic_name"/>
+		<param name="buffer-size" value="100" /> 
+
 	</settings>
  </configuration>

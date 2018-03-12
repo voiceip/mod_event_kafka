@@ -10,6 +10,7 @@ namespace mod_event_kafka {
 	static struct {
 		char *brokers;
 		char *topic_prefix;
+		int buffer_size;
 	} globals;
 
 	SWITCH_MODULE_LOAD_FUNCTION(mod_event_kafka_load);

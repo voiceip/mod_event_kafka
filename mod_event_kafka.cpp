@@ -48,6 +48,8 @@ namespace mod_event_kafka {
                             "localhost:9092", NULL, "bootstrap-servers", "Kafka Bootstrap Brokers"),
         SWITCH_CONFIG_ITEM("topic-prefix", SWITCH_CONFIG_STRING, CONFIG_RELOADABLE, &globals.topic_prefix,
                             "fs", NULL, "topic-prefix", "Kafka Topic Prefix"),
+        SWITCH_CONFIG_ITEM("buffer-size", SWITCH_CONFIG_INT, CONFIG_RELOADABLE, &globals.buffer_size,
+                            10, NULL, "buffer-size", "queue.buffering.max.messages"),
         SWITCH_CONFIG_ITEM_END()
     };
 
@@ -58,7 +60,7 @@ namespace mod_event_kafka {
             switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_CRIT, "Could not open event_kafka.conf\n");
             return SWITCH_STATUS_FALSE;
         } else {
-            switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "event_kafka.conf loaded [brokers: %s, prefix: %s]", globals.brokers, globals.topic_prefix);
+            switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "event_kafka.conf loaded [brokers: %s, prefix: %s, buffer-size: %d]", globals.brokers, globals.topic_prefix, globals.buffer_size);
         }
         return SWITCH_STATUS_SUCCESS;
     }
@@ -80,7 +82,7 @@ namespace mod_event_kafka {
                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, errstr);
             }
 
-            if (rd_kafka_conf_set(conf, "queue.buffering.max.messages", "5", errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK) {
+            if (rd_kafka_conf_set(conf, "queue.buffering.max.messages", std::to_string(globals.buffer_size).c_str(), errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK) {
                 switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, errstr);
             }
 

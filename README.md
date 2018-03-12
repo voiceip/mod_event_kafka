@@ -14,6 +14,7 @@ sudo apt-get install librdkafka-dev
 
 ```
 make
+make install
 ```
 
 

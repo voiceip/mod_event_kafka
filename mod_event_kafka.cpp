@@ -86,6 +86,14 @@ namespace mod_event_kafka {
                 switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, errstr);
             }
 
+            if (rd_kafka_conf_set(conf, "max.in.flight", "1000", errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK) {
+                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, errstr);
+            }
+
+            if (rd_kafka_conf_set(conf, "compression.codec", "snappy", errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK) {
+                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, errstr);
+            }
+
             rd_kafka_conf_set_dr_msg_cb(conf, dr_msg_cb);
 
             producer = rd_kafka_new(RD_KAFKA_PRODUCER, conf, errstr, sizeof(errstr));
@@ -106,16 +114,17 @@ namespace mod_event_kafka {
 
         void PublishEvent(switch_event_t *event) {
 
+            char *uuid = switch_event_get_header(event, "Unique-ID");
             char *event_json = (char*)malloc(sizeof(char));
             switch_event_serialize_json(event, &event_json);
-            size_t len = strlen(event_json);
 
             if(_initialized){
-                int resp = send(event_json,0);
+                int resp = send(event_json, uuid ,0);
                 if (resp == -1){
                     switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Failed to produce, with error %s", rd_kafka_err2str(rd_kafka_last_error()));
                 } else {
-                    switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG,"Produced message (%zu bytes)", len);
+                    //size_t len = strlen(event_json);
+                    //switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG,"Produced message (%zu bytes)", len);
                 }
                 rd_kafka_poll(producer, 0);
             } else {
@@ -138,20 +147,22 @@ namespace mod_event_kafka {
         private:
 
         static void dr_msg_cb (rd_kafka_t *rk, const rd_kafka_message_t *rkmessage, void *opaque) {
-            if (rkmessage->err)
+            if (rkmessage->err) {
                 switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, " Message delivery failed %s \n",rd_kafka_err2str(rkmessage->err));
-            else
-                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO,  "Message delivered (%zd bytes, partition %d, offset  %" PRId64 ") \n",rkmessage->len, rkmessage->partition, rkmessage->offset);
+            }
+            else {
+                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG,  "Message delivered (%zd bytes, partition %d, offset  %" PRId64 ") \n",rkmessage->len, rkmessage->partition, rkmessage->offset);
+            }
         }
 
-
-        int send(char *data, int currentCount = 0){
+        int send(char *data, char *key, int currentCount = 0){
             if(++currentCount <= max_retry_limit){
+                int key_length = key == NULL ? 0 : strlen(key);
                 int result = rd_kafka_produce(topic, RD_KAFKA_PARTITION_UA,
                             RD_KAFKA_MSG_F_COPY /* Copy payload */,
                             (void *)data, strlen(data),
                             /* Optional key and its length */
-                            NULL, 0,
+                            key, key_length,
                             /* Message opaque, provided in
                              * delivery report callback as
                              * msg_opaque. */
@@ -161,11 +172,12 @@ namespace mod_event_kafka {
                 if (result != -1){
                     return result;
                 } else if(last_error == RD_KAFKA_RESP_ERR__QUEUE_FULL) {
+
                     switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG,"queue.buffering.max.messages limit reached, waiting 1sec to flush out.");
-                    std::thread([this, data, currentCount]() { 
+                    std::thread([this, data, currentCount, key]() { 
                         //localqueue is full, hold and flush them.
                         rd_kafka_poll(producer, 1000/*block for max 1000ms*/);
-                        send(data,currentCount); 
+                        send(data, key, currentCount); 
                     })
                     .detach(); //TODO: limit number of forked threads
                     return result;

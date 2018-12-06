@@ -114,7 +114,7 @@ namespace mod_event_kafka {
 
         void PublishEvent(switch_event_t *event) {
 
-            char *uuid = switch_event_get_header(event, "Unique-ID");
+            char *uuid = switch_event_get_header(event, "Channel-Call-UUID");
             char *event_json = (char*)malloc(sizeof(char));
             switch_event_serialize_json(event, &event_json);
 
@@ -243,10 +243,10 @@ namespace mod_event_kafka {
                 KafkaEventPublisher *publisher = static_cast<KafkaEventPublisher*>(event->bind_user_data);
                 publisher->PublishEvent(event);
             } catch (std::exception ex) {
-                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_WARNING, "Error publishing event via 0MQ: %s\n",
+                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_WARNING, "Error publishing event to Kafka: %s\n",
                                   ex.what());
             } catch (...) { // Exceptions must not propogate to C caller
-                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_WARNING, "Unknown error publishing event via 0MQ\n");
+                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_WARNING, "Unknown error publishing event to Kafka\n");
             }
         }
 

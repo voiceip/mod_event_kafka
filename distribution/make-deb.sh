@@ -3,6 +3,12 @@ set -ex
 
 BUILD_ROOT=$(mktemp -d)
 VERSION=$(date +%s)
+
+pushd /fs/mod_event_kafka
+make
+make install
+popd 
+
 cp -r debian/* $BUILD_ROOT/
 
 mkdir -p $BUILD_ROOT/usr/local/lib/

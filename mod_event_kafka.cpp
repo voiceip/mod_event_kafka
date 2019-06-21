@@ -261,7 +261,7 @@ namespace mod_event_kafka {
     //*****************************//
     //           GLOBALS           //
     //*****************************//
-    std::auto_ptr<KafkaModule> module;
+    std::unique_ptr<KafkaModule> module;
 
 
     //*****************************//

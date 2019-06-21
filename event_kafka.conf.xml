@@ -2,6 +2,6 @@
 	<settings>
 		<param name="bootstrap-servers" value="localhost:9092"/>
 		<param name="topic-prefix" value="topic_name"/>
-		<param name="buffer-size" value="256" /> 
+		<param name="buffer-size" value="16" /> 
 	</settings>
  </configuration>

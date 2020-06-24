@@ -141,7 +141,7 @@ namespace mod_event_kafka {
 
         ~KafkaEventPublisher(){
             switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "KafkaEventPublisher Destroyed\n");
-            rd_kafka_topic_destroy(topic);
+            rd_kpic_destroy(topic);
             rd_kafka_destroy(producer);
         }
 

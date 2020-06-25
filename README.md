@@ -1,7 +1,7 @@
 # mod_event_kafka
 Freeswitch Kafka Plugin 
 
-![Build Status](https://travis-ci.com/voiceip/mod_event_redis.svg?branch=master)
+![Build Status](https://travis-ci.com/voiceip/mod_event_kafka.svg?branch=master)
 
 Install this plugin to publish all of the freeswitch generated events to Kafka reliably from the freeswitch server. To enable just configure the `event_kafka.conf.xml` 
 

@@ -10,6 +10,9 @@ namespace mod_event_kafka {
 	static struct {
 		char *brokers;
 		char *topic_prefix;
+		char *topic;
+		char *username;
+		char *password;
 		int buffer_size;
 	} globals;
 

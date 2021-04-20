@@ -118,6 +118,13 @@ namespace mod_event_kafka {
             char *event_json = (char*)malloc(sizeof(char));
             switch_event_serialize_json(event, &event_json);
 
+            const switch_status_t json_status = switch_event_serialize_json(event, &event_json);
+            if (json_status == SWITCH_STATUS_FALSE) {
+                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "json serialization failed in switch\n");
+                delete event_json;
+                return;
+            }
+
             if(_initialized){
                 int resp = send(event_json, uuid ,0);
                 if (resp == -1){
@@ -245,8 +252,7 @@ namespace mod_event_kafka {
                 KafkaEventPublisher *publisher = static_cast<KafkaEventPublisher*>(event->bind_user_data);
                 publisher->PublishEvent(event);
             } catch (std::exception ex) {
-                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_WARNING, "Error publishing event to Kafka: %s\n",
-                                  ex.what());
+                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_WARNING, "Error publishing event to Kafka: %s\n", ex.what());
             } catch (...) { // Exceptions must not propogate to C caller
                 switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_WARNING, "Unknown error publishing event to Kafka\n");
             }
@@ -269,7 +275,7 @@ namespace mod_event_kafka {
     //*****************************//
     SWITCH_MODULE_LOAD_FUNCTION(mod_event_kafka_load) {
             try {
-                module.reset(new KafkaModule(module_interface, pool));
+                module = std::make_unique<KafkaModule>(module_interface, pool);
                 return SWITCH_STATUS_SUCCESS;
             } catch(...) { // Exceptions must not propogate to C caller
                 switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Error loading Kafka Event module\n");

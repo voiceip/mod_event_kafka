@@ -40,8 +40,6 @@
 
 namespace mod_event_kafka {
 
-    constexpr std::size_t UUID_LENGTH = 36;
-
     template <typename T, std::size_t Muliplier = 1>
     T* malloc_new()
     {
@@ -103,7 +101,7 @@ namespace mod_event_kafka {
                 switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, errstr);
             }
 
-            if (globals.username && globals.username[0] != "\0") {
+            if (globals.username && globals.username[0] != '\0') {
                 //username is set, set authentication params
                 if (rd_kafka_conf_set(conf, "sasl.mechanism", "PLAIN", errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK) {
                     switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, errstr);
@@ -130,9 +128,9 @@ namespace mod_event_kafka {
             }
 
              //build topic if not defined
-            if (globals.topic && globals.topic[0] == "\0") {
+            if (globals.topic && globals.topic[0] == '\0') {
                 std::string topic_str = std::string(globals.topic_prefix) + "_" + std::string(switch_core_get_switchname());
-                globals.topic = topic_str.c_str();
+                strcpy(globals.topic, topic_str.c_str());
             }
 
             switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "KafkaEventPublisher Topic : %s \n", globals.topic);

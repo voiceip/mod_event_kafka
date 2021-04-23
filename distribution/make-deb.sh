@@ -20,6 +20,6 @@ FS_VERSION=$(dpkg -s libfreeswitch-dev | grep "Version" | cut -d ' ' -f 2)
 
 sed -i "s/_VERSION_/$VERSION/g" $BUILD_ROOT/DEBIAN/control
 sed -i "s/_FSVERSION_/$FS_VERSION/g" $BUILD_ROOT/DEBIAN/control
-dpkg-deb --build $BUILD_ROOT freeswitch-mod-event-kafka.deb
+dpkg-deb -Zgzip --build $BUILD_ROOT freeswitch-mod-event-kafka.deb
 
 rm -rf $BUILD_ROOT

@@ -131,7 +131,6 @@ namespace mod_event_kafka {
 
              //build topic if not defined
             if (globals.topic && globals.topic[0] == "\0") {
-                //topic is not defined
                 std::string topic_str = std::string(globals.topic_prefix) + "_" + std::string(switch_core_get_switchname());
                 globals.topic = topic_str.c_str();
             }

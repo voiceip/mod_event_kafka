@@ -9,6 +9,11 @@ on:
 jobs:
   mod_event_kafka_job:
     runs-on: ubuntu-latest
+    services:
+      registry:
+        image: registry:2
+        ports:
+          - 5000:5000
     name: Build mod_event_kafka
     steps:
       # To use this repository's private action,
@@ -30,12 +35,6 @@ jobs:
           key: ${{ runner.os }}-buildx-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-buildx-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v1 
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GHCR_TOKEN }}
       - name: Build Docker Container
         uses: docker/build-push-action@v2
         id: docker_build
@@ -44,7 +43,7 @@ jobs:
           # not necessary here, because we set it before
           #load: true
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/mod_event_kafka_build:latest
+          tags: localhost:5000//${{ github.repository_owner }}/mod_event_kafka_build:latest
           context: .
           file: .devcontainer/Dockerfile
           cache-from: type=local,src=/tmp/.buildx-cache
@@ -53,9 +52,12 @@ jobs:
         run: echo ${{ steps.docker_build.outputs.digest }}
       - name: Docker images
         run: docker images
+      - name: Inspect
+        run: |
+          docker buildx imagetools inspect localhost:5000/${{ github.repository_owner }}/mod_event_kafka_build:latest
       - name: Run tests
         run: |
-          docker run -i ghcr.io/${{ github.repository_owner }}/mod_event_kafka_build:latest bash -c "cd /mod_event_kafka && make && ls"
+          docker run -i localhost:5000//${{ github.repository_owner }}/mod_event_kafka_build:latest bash -c "cd /mod_event_kafka && make && ls"
       - name: Move cache
         run: |
           rm -rf /tmp/.buildx-cache

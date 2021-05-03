@@ -73,7 +73,7 @@ namespace mod_event_kafka {
 
             load_config(SWITCH_FALSE);
             
-            conf = rd_kafka_conf_new()
+            conf = rd_kafka_conf_new();
 
             if (rd_kafka_conf_set(conf, "metadata.broker.list", globals.brokers, errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK) {
                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, errstr);

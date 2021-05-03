@@ -52,11 +52,6 @@ jobs:
           cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
       - name: Image digest 
         run: echo ${{ steps.docker_build.outputs.digest }}
-      - name: Docker images
-        run: docker images
-      - name: Inspect
-        run: |
-          docker buildx imagetools inspect localhost:5000/${{ github.repository_owner }}/mod_event_kafka_build:latest
       - name: Run tests
         run: |
           docker run -i localhost:5000/${{ github.repository_owner }}/mod_event_kafka_build:latest bash -c "cd /mod_event_kafka && make && ls"

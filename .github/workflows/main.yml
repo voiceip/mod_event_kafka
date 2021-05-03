@@ -1,0 +1,61 @@
+name: Run tests
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  mod_event_kafka_job:
+    runs-on: ubuntu-latest
+    services:
+      registry:
+        image: registry:2
+        ports:
+          - 5000:5000
+    name: Build mod_event_kafka
+    steps:
+      # To use this repository's private action,
+      # you must check out the repository
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Prepopulate Docker file
+        run: |
+          sed -i 's/#INSERT_HERE/COPY . \/mod_event_kafka/g' .devcontainer/Dockerfile
+          cat .devcontainer/Dockerfile
+      # This is the a separate action that sets up buildx runner
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+        with:
+          driver-opts: network=host
+      # So now you can use Actions' own caching!
+      - name: Cache Docker layers
+        uses: actions/cache@v2
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+      - name: Build Docker Container
+        uses: docker/build-push-action@v2
+        id: docker_build
+        with:
+          # using "load: true" forces the docker driver
+          # not necessary here, because we set it before
+          #load: true
+          push: true
+          tags: localhost:5000/${{ github.repository }}_build:latest
+          context: .
+          file: .devcontainer/Dockerfile
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+      - name: Compile
+        run: |
+          docker run -i localhost:5000/${{ github.repository }}_build:latest bash -c "cd /mod_event_kafka && make && ls"
+      - name: Move cache
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache

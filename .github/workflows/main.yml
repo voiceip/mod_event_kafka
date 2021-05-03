@@ -43,7 +43,7 @@ jobs:
           # not necessary here, because we set it before
           #load: true
           push: true
-          tags: localhost:5000//${{ github.repository_owner }}/mod_event_kafka_build:latest
+          tags: localhost:5000/${{ github.repository_owner }}/mod_event_kafka_build:latest
           context: .
           file: .devcontainer/Dockerfile
           cache-from: type=local,src=/tmp/.buildx-cache
@@ -57,7 +57,7 @@ jobs:
           docker buildx imagetools inspect localhost:5000/${{ github.repository_owner }}/mod_event_kafka_build:latest
       - name: Run tests
         run: |
-          docker run -i localhost:5000//${{ github.repository_owner }}/mod_event_kafka_build:latest bash -c "cd /mod_event_kafka && make && ls"
+          docker run -i localhost:5000/${{ github.repository_owner }}/mod_event_kafka_build:latest bash -c "cd /mod_event_kafka && make && ls"
       - name: Move cache
         run: |
           rm -rf /tmp/.buildx-cache

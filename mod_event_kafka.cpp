@@ -284,8 +284,9 @@ namespace mod_event_kafka {
             try {
                 KafkaEventPublisher *publisher = static_cast<KafkaEventPublisher*>(event->bind_user_data);
                 publisher->PublishEvent(event);
-            } catch (std::exception ex) {
-                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_WARNING, "Error publishing event to Kafka: %s\n", ex.what());
+            } catch (std::exception const &ex) {
+                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_WARNING, "Error publishing event to Kafka: %s\n",
+                                  ex.what());
             } catch (...) { // Exceptions must not propogate to C caller
                 switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_WARNING, "Unknown error publishing event to Kafka\n");
             }
@@ -324,7 +325,7 @@ namespace mod_event_kafka {
                 module->Shutdown();
                 // Free the module object
                 module.reset();
-            } catch(std::exception &ex) {
+            } catch(std::exception const &ex) {
                 switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Error shutting down Kafka Event module: %s\n",
                                   ex.what());
             } catch(...) { // Exceptions must not propogate to C caller

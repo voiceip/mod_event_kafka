@@ -1,7 +1,10 @@
 <configuration name="event_kafka.conf" description="Kafka Event Configuration">
 	<settings>
 		<param name="bootstrap-servers" value="localhost:9092"/>
-		<param name="topic-prefix" value="topic_name"/>
+		<param name="topic-prefix" value="topic_prefix"/>
+		<param name="topic" value="" />  <!-- set either topic-prefix or topic, incase both are defiend topic value would be used. -->
+		<param name="username" value="" /> <!-- set it only if you have sasl enabled on your kafka cluster -->
+		<param name="password" value="" />
 		<param name="buffer-size" value="16" /> 
 	</settings>
  </configuration>

@@ -52,6 +52,9 @@ jobs:
           file: .devcontainer/Dockerfile
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+          build-args: |
+            SIGNALWIRE_TOKEN=${{ secrets.SIGNALWIRE_TOKEN }}
+
       - name: Compile
         run: |
           docker run -i localhost:5000/${{ github.repository }}_build:latest bash -c "cd /mod_event_kafka && make && ls"

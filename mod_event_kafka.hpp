@@ -14,6 +14,7 @@ namespace mod_event_kafka {
 		char *username;
 		char *password;
 		int buffer_size;
+		char *compression;
 	} globals;
 
 	SWITCH_MODULE_LOAD_FUNCTION(mod_event_kafka_load);

@@ -286,7 +286,6 @@ namespace mod_event_kafka {
                 }
 
             } else {
-                //bind to all events
                 // Subscribe to all switch events of any subclass
                 // Store a pointer to ourself in the user data
                 if (switch_event_bind_removable(modname, SWITCH_EVENT_ALL, SWITCH_EVENT_SUBCLASS_ANY, event_handler,

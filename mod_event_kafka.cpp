@@ -59,6 +59,8 @@ namespace mod_event_kafka {
                             10, NULL, "buffer-size", "queue.buffering.max.messages"),
         SWITCH_CONFIG_ITEM("compression", SWITCH_CONFIG_STRING, CONFIG_RELOADABLE, &globals.compression,
                             "snappy", NULL, "snappy / lz4 ", "Compression"),
+        SWITCH_CONFIG_ITEM("event-filter", SWITCH_CONFIG_STRING, CONFIG_RELOADABLE, &globals.event_filter,
+                            "", NULL, "comma separated value of event names", "Event Filter"),
         SWITCH_CONFIG_ITEM_END()
     };
 
@@ -252,14 +254,50 @@ namespace mod_event_kafka {
 
         KafkaModule(switch_loadable_module_interface_t **module_interface, switch_memory_pool_t *pool): _publisher() {
              
-            // Subscribe to all switch events of any subclass
-            // Store a pointer to ourself in the user data
-            if (switch_event_bind_removable(modname, SWITCH_EVENT_ALL, SWITCH_EVENT_SUBCLASS_ANY, event_handler,
-                                            static_cast<void*>(&_publisher), &_node)
-                != SWITCH_STATUS_SUCCESS) {
-                throw std::runtime_error("Couldn't bind to switch events.");
+            char *event_filter_name[SWITCH_EVENT_ALL];
+            char *switch_event_custom = (char*) std::string("SWITCH_EVENT_CUSTOM::").c_str();
+            profile.event_subscriptions = switch_separate_string(globals.event_filter, ',', event_filter_name, (sizeof(event_filter_name) / sizeof(event_filter_name[0])));
+            switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "Found %d subscriptions\n", profile.event_subscriptions);
+            for (int i = 0; i < profile.event_subscriptions; i++) {
+                if (switch_name_event(event_filter_name[i], &(profile.event_ids[i])) != SWITCH_STATUS_SUCCESS && !switch_strstr(event_filter_name[i],switch_event_custom) ) {
+                    switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_CRIT, "The switch event %s was not recognised.\n", event_filter_name[i]);
+                } else {
+                    // switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "Found subscription for %s event.\n", argv[arg]);
+                }
             }
-            switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "Subscribed to events\n");
+
+            if (profile.event_subscriptions > 0 ) {
+                /* Subscribe events */
+                for (int i = 0; i < profile.event_subscriptions; i++) {
+                    if ( switch_strstr(event_filter_name[i], switch_event_custom)) {
+                        if (switch_event_bind_removable(modname, SWITCH_EVENT_CUSTOM, event_filter_name[i] + strlen("SWITCH_EVENT_CUSTOM::"),
+                                                        event_handler, static_cast<void*>(&_publisher),&(profile.event_nodes[i])) != SWITCH_STATUS_SUCCESS) {
+                            switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Cannot bind to event handler %d!\n",(int)profile.event_ids[i]);
+                            throw std::invalid_argument("Failed to bind event handler for " + std::string(event_filter_name[i]));
+                        }
+                    } else {
+                        if (switch_event_bind_removable(modname, profile.event_ids[i], SWITCH_EVENT_SUBCLASS_ANY,
+                                                        event_handler, static_cast<void*>(&_publisher), &(profile.event_nodes[i])) != SWITCH_STATUS_SUCCESS) {
+                            switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, "Cannot bind to event handler %d!\n",(int)profile.event_ids[i]);
+                            throw std::invalid_argument( "Failed to bind event handler for " + std::string(event_filter_name[i]));
+                        }
+                    }
+                    switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "Subscribed to %s event.\n", event_filter_name[i]);
+                }
+
+            } else {
+                //bind to all events
+                // Subscribe to all switch events of any subclass
+                // Store a pointer to ourself in the user data
+                if (switch_event_bind_removable(modname, SWITCH_EVENT_ALL, SWITCH_EVENT_SUBCLASS_ANY, event_handler,
+                                                static_cast<void*>(&_publisher), &_node)
+                    != SWITCH_STATUS_SUCCESS) {
+                    throw std::runtime_error("Couldn't bind to switch events.");
+                }
+                switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "Subscribed to ALL events\n");
+                
+            }
+
 
             // Create our module interface registration
             *module_interface = switch_loadable_module_create_module_interface(pool, modname);
@@ -276,7 +314,13 @@ namespace mod_event_kafka {
 
         ~KafkaModule() {
             // Unsubscribe from the switch events
-            switch_event_unbind(&_node);
+            if (profile.event_subscriptions > 0 ) {
+                for (int i = 0; i < profile.event_subscriptions; i++) {
+                    switch_event_unbind(&(profile.event_nodes[i]));
+                }
+            } else {
+                switch_event_unbind(&_node);
+            }
             switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_DEBUG, "Module shut down\n");
         }
 

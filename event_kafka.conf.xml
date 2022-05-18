@@ -7,5 +7,6 @@
 		<param name="password" value="" />
 		<param name="buffer-size" value="16" /> 
 		<param name="compression" value="snappy"/>
+		<param name="event-filter" value=""/> <!-- set it to a valid list of events if you want to filter. Default empty doesn't filter any event -->
 	</settings>
  </configuration>

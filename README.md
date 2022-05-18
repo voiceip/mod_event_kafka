@@ -11,6 +11,7 @@ Install this plugin to publish all of the freeswitch generated events to Kafka r
 		<param name="bootstrap-servers" value="localhost:9092"/>
 		<param name="topic-prefix" value="topic_prefix"/>
 		<param name="buffer-size" value="256" /> 
+		<param name="compression" value="snappy"/>
 	</settings>
  </configuration>
 ```

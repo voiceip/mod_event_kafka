@@ -6,5 +6,6 @@
 		<param name="username" value="" /> <!-- set it only if you have sasl enabled on your kafka cluster -->
 		<param name="password" value="" />
 		<param name="buffer-size" value="16" /> 
+		<param name="compression" value="snappy"/>
 	</settings>
  </configuration>

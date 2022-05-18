@@ -57,6 +57,8 @@ namespace mod_event_kafka {
                             "fs", NULL, "topic-prefix", "Kafka Topic Prefix"),
         SWITCH_CONFIG_ITEM("buffer-size", SWITCH_CONFIG_INT, CONFIG_RELOADABLE, &globals.buffer_size,
                             10, NULL, "buffer-size", "queue.buffering.max.messages"),
+        SWITCH_CONFIG_ITEM("compression", SWITCH_CONFIG_STRING, CONFIG_RELOADABLE, &globals.compression,
+                            "snappy", NULL, "snappy / lz4 ", "Compression"),
         SWITCH_CONFIG_ITEM_END()
     };
 
@@ -67,7 +69,8 @@ namespace mod_event_kafka {
             switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_CRIT, "Could not open event_kafka.conf\n");
             return SWITCH_STATUS_FALSE;
         } else {
-            switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "event_kafka.conf loaded [brokers: %s, topic/topic_prefix: %s/%s, username: %s, buffer-size: %d]", globals.brokers, globals.topic, globals.topic_prefix, globals.username, globals.buffer_size);
+            switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "event_kafka.conf loaded [brokers: %s, topic/topic_prefix: %s/%s, username: %s, buffer-size: %d, compression: %s]", 
+            globals.brokers, globals.topic, globals.topic_prefix, globals.username, globals.buffer_size, globals.compression);
         }
         return SWITCH_STATUS_SUCCESS;
     }
@@ -97,7 +100,7 @@ namespace mod_event_kafka {
                 switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, errstr);
             }
 
-            if (rd_kafka_conf_set(conf, "compression.codec", "snappy", errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK) {
+            if (rd_kafka_conf_set(conf, "compression.codec", globals.compression, errstr, sizeof(errstr)) != RD_KAFKA_CONF_OK) {
                 switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_ERROR, errstr);
             }
 

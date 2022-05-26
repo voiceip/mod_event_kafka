@@ -2,10 +2,11 @@
 	<settings>
 		<param name="bootstrap-servers" value="localhost:9092"/>
 		<param name="topic-prefix" value="topic_prefix"/>
-		<param name="topic" value="" />  <!-- set either topic-prefix or topic, incase both are defiend topic value would be used. -->
+		<param name="topic" value="" />  <!-- set either topic-prefix or topic, incase both are defined topic value would be used. -->
 		<param name="username" value="" /> <!-- set it only if you have sasl enabled on your kafka cluster -->
 		<param name="password" value="" />
 		<param name="buffer-size" value="16" /> 
 		<param name="compression" value="snappy"/>
+		<param name="event-filter" value=""/> <!-- set it to a valid list of events if you want to filter. Default empty doesn't filter any event -->
 	</settings>
  </configuration>

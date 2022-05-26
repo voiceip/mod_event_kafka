@@ -1,7 +1,7 @@
 # mod_event_kafka
 Freeswitch Kafka Plugin 
 
-![Build Status](https://travis-ci.com/voiceip/mod_event_kafka.svg?branch=master)
+[![Build Status](https://github.com/voiceip/mod_event_kafka/actions/workflows/main.yml/badge.svg?branch=master)](https://github.com/voiceip/mod_event_kafka/actions/workflows/main.yml)
 
 Install this plugin to publish all of the freeswitch generated events to Kafka reliably from the freeswitch server. To enable just configure the `event_kafka.conf.xml` 
 
@@ -9,9 +9,12 @@ Install this plugin to publish all of the freeswitch generated events to Kafka r
 <configuration name="event_kafka.conf" description="Kafka Event Configuration">
 	<settings>
 		<param name="bootstrap-servers" value="localhost:9092"/>
-		<param name="topic-prefix" value="topic_prefix"/>
+		<param name="topic" value="kafa-topic-name" /> 
+		<param name="username" value="" />
+		<param name="password" value="" />
 		<param name="buffer-size" value="256" /> 
 		<param name="compression" value="snappy"/>
+		<param name="event-filter" value=""/> 
 	</settings>
  </configuration>
 ```
